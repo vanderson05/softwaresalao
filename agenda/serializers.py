@@ -256,7 +256,7 @@ class ScheduleBlockSerializer(serializers.ModelSerializer):
             'start_time', 'end_time', 'reason',
             'is_full_day', 'created_at',
         ]
-        read_only_fields = ['id', 'created_at', 'is_full_day']
+        read_only_fields = ['id', 'created_at', 'is_full_day', 'professional']
 
     def validate(self, data):
         start = data.get('start_time')
