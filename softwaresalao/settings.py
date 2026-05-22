@@ -181,3 +181,4 @@ DEFAULT_FROM_EMAIL  = config('DEFAULT_FROM_EMAIL', default='noreply@beautiapp.co
 
 # ── URLs e frontend ───────────────────────────────────────────────────────────
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
+OPENAI_API_KEY = config('OPENAI_API_KEY', default='')

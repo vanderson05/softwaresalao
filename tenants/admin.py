@@ -1,6 +1,4 @@
-# ═══════════════════════════════════════════════════════════════
-# apps/tenants/admin.py
-# ═══════════════════════════════════════════════════════════════
+# tenants/admin.py
 
 from django.contrib import admin
 from .models import Tenant, TenantUser, EmailVerification, TenantBusinessHours
@@ -8,8 +6,10 @@ from .models import Tenant, TenantUser, EmailVerification, TenantBusinessHours
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
-    list_display  = ['name', 'slug', 'plan', 'is_active', 'email_verified',
-                     'setup_completed', 'trial_ends_at', 'created_at']
+    list_display  = [
+        'name', 'slug', 'plan', 'is_active',
+        'email_verified', 'setup_completed', 'trial_ends_at', 'created_at'
+    ]
     list_filter   = ['plan', 'is_active', 'email_verified', 'setup_completed', 'type']
     search_fields = ['name', 'slug', 'email', 'phone']
     readonly_fields = ['id', 'created_at', 'updated_at', 'trial_days_remaining',
@@ -22,23 +22,16 @@ class TenantAdmin(admin.ModelAdmin):
             'fields': ('phone', 'email', 'address', 'city', 'logo_url')
         }),
         ('Plano e status', {
-            'fields': ('plan', 'is_active', 'trial_ends_at',
-                       'trial_days_remaining', 'max_professionals')
+            'fields': (
+                'plan', 'is_active', 'trial_ends_at',
+                'trial_days_remaining', 'max_professionals'
+            )
         }),
         ('Onboarding', {
             'fields': ('email_verified', 'setup_completed')
         }),
         ('WhatsApp', {
             'fields': ('wa_phone_number_id', 'wa_token', 'wa_verify_token'),
-            'classes': ('collapse',),
-        }),
-        ('Feature Flags', {
-            'fields': (
-                'feature_financial', 'feature_loyalty_points', 'feature_nps',
-                'feature_return_messages', 'feature_birthday_message',
-                'feature_promo_blast', 'feature_ai_insights',
-                'feature_audio_support', 'feature_custom_domain', 'feature_packages',
-            ),
             'classes': ('collapse',),
         }),
         ('Datas', {
@@ -69,3 +62,10 @@ class EmailVerificationAdmin(admin.ModelAdmin):
     list_filter   = ['verified']
     search_fields = ['user__email']
     readonly_fields = ['token', 'created_at']
+
+
+@admin.register(TenantBusinessHours)
+class TenantBusinessHoursAdmin(admin.ModelAdmin):
+    list_display  = ['tenant', 'weekday', 'open_time', 'close_time', 'is_closed']
+    list_filter   = ['is_closed', 'weekday']
+    search_fields = ['tenant__name']
