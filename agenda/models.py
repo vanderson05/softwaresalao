@@ -232,3 +232,97 @@ class Appointment(models.Model):
     def __str__(self):
         name = self.client_name or (str(self.client) if self.client else 'Cliente')
         return f"{name} — {self.service.name} {self.starts_at:%d/%m %H:%M}"
+
+class Package(models.Model):
+    """
+    Pacote de serviços com desconto.
+    Ex: 4 cortes por R$120 (vs R$140 avulso).
+    Disponível no plano Pro+.
+    """
+    id          = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant      = models.ForeignKey('tenants.Tenant', on_delete=models.CASCADE, related_name='packages')
+    name        = models.CharField(max_length=100, help_text="Ex: Pacote Mensal Corte")
+    description = models.TextField(blank=True)
+    service     = models.ForeignKey('Service', on_delete=models.CASCADE, related_name='packages')
+    sessions    = models.PositiveIntegerField(help_text="Quantidade de sessões. Ex: 4")
+    price       = models.DecimalField(max_digits=8, decimal_places=2, help_text="Preço do combo")
+    is_active   = models.BooleanField(default=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table     = 'packages'
+        ordering     = ['name']
+        verbose_name = 'Pacote'
+        verbose_name_plural = 'Pacotes'
+
+    def __str__(self):
+        return f"{self.name} — {self.sessions}x R${self.price}"
+
+    @property
+    def price_per_session(self):
+        return round(float(self.price) / self.sessions, 2)
+
+    @property
+    def original_price(self):
+        return float(self.service.price) * self.sessions
+
+    @property
+    def discount_pct(self):
+        if self.original_price == 0:
+            return 0
+        return round((1 - float(self.price) / self.original_price) * 100, 1)
+
+
+class ClientPackage(models.Model):
+    """
+    Pacote adquirido por um cliente.
+    Controla sessões usadas vs compradas.
+    """
+    class Status(models.TextChoices):
+        ACTIVE    = 'active',    'Ativo'
+        EXHAUSTED = 'exhausted', 'Esgotado'
+        EXPIRED   = 'expired',   'Expirado'
+        CANCELLED = 'cancelled', 'Cancelado'
+
+    id               = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant           = models.ForeignKey('tenants.Tenant', on_delete=models.CASCADE, related_name='client_packages')
+    client           = models.ForeignKey('clients.Client', on_delete=models.CASCADE, related_name='packages')
+    package          = models.ForeignKey(Package, on_delete=models.CASCADE, related_name='client_packages')
+    sessions_total   = models.PositiveIntegerField(help_text="Cópia de package.sessions no momento da compra")
+    sessions_used    = models.PositiveIntegerField(default=0)
+    status           = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    purchased_at     = models.DateTimeField(auto_now_add=True)
+    expires_at       = models.DateTimeField(null=True, blank=True, help_text="Opcional — validade do pacote")
+    notes            = models.TextField(blank=True)
+
+    class Meta:
+        db_table     = 'client_packages'
+        ordering     = ['-purchased_at']
+        verbose_name = 'Pacote do cliente'
+
+    def __str__(self):
+        return f"{self.client.name} — {self.package.name} ({self.sessions_remaining} restantes)"
+
+    @property
+    def sessions_remaining(self):
+        return self.sessions_total - self.sessions_used
+
+    @property
+    def is_available(self):
+        from django.utils import timezone
+        if self.status != self.Status.ACTIVE:
+            return False
+        if self.expires_at and timezone.now() > self.expires_at:
+            return False
+        return self.sessions_remaining > 0
+
+    def use_session(self):
+        """Registra uso de uma sessão. Retorna True se bem-sucedido."""
+        if not self.is_available:
+            return False
+        self.sessions_used += 1
+        if self.sessions_remaining == 0:
+            self.status = self.Status.EXHAUSTED
+        self.save(update_fields=['sessions_used', 'status'])
+        return True

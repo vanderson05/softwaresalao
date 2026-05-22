@@ -1,6 +1,4 @@
 # agenda/views_appointment.py
-# Adicionar ao agenda/views.py
-
 from datetime import date as date_type, timedelta
 from django.utils import timezone
 from rest_framework import status
@@ -48,13 +46,19 @@ def _trigger_completed(appointment):
     except Exception as e:
         print(f"[CASHENTRY ERROR] {e}")
 
-    # 2. Atualiza last_visit_at do cliente
+    # 2. Atualiza last_visit_at no perfil do tenant
     if appointment.client:
         try:
-            appointment.client.last_visit_at = timezone.now()
-            appointment.client.save(update_fields=['last_visit_at'])
+            from clients.models import ClientTenantProfile
+            profile, _ = ClientTenantProfile.objects.get_or_create(
+                client=appointment.client,
+                tenant=tenant,
+            )
+            profile.last_visit_at  = timezone.now()
+            profile.total_visits  += 1
+            profile.save(update_fields=['last_visit_at', 'total_visits'])
         except Exception as e:
-            print(f"[CLIENT UPDATE ERROR] {e}")
+            print(f"[CLIENT PROFILE ERROR] {e}")
 
     # 3. NPS — marca para envio pelo job (não envia aqui direto)
     if tenant.has_feature('nps') and not appointment.nps_sent:

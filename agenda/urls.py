@@ -5,6 +5,7 @@
 from django.urls import path
 from . import views
 from . import views_appointment
+from .views_packages import packages_view, assign_package_view, client_packages_view
  
 urlpatterns = [
     # ── Etapa 3 — Profissionais ───────────────────────────────
@@ -69,4 +70,8 @@ urlpatterns = [
     path('agenda/week/',
          views_appointment.agenda_week_view,
          name='agenda-week'),
+
+     path('packages/',          packages_view,        name='packages'),
+     path('packages/assign/',   assign_package_view,  name='packages-assign'),
+     path('packages/clients/',  client_packages_view, name='packages-clients'),
 ]

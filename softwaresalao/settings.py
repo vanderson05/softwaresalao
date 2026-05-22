@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'corsheaders',
 
     # Beauti apps
+    'public',
     'tenants',
     'agenda',
     'clients',

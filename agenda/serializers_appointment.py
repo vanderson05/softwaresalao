@@ -123,17 +123,19 @@ class AppointmentCreateSerializer(serializers.Serializer):
     def _upsert_client(self, tenant, appointment):
         """Cria ou atualiza o cliente automaticamente."""
         try:
-            from clients.models import Client
+            from clients.models import Client, ClientTenantProfile
             client, _ = Client.objects.get_or_create(
-                tenant=tenant,
                 phone=appointment.client_phone,
                 defaults={'name': appointment.client_name}
+            )
+            ClientTenantProfile.objects.get_or_create(
+                client=client,
+                tenant=tenant,
             )
             appointment.client = client
             appointment.save(update_fields=['client'])
         except Exception:
             pass
-
 
 class AppointmentSerializer(serializers.ModelSerializer):
     """Serializer de leitura completo."""
