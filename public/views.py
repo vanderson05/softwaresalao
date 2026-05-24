@@ -328,7 +328,7 @@ def auth_verify_code_view(request, slug):
  
     return Response({
         'token':        token,
-        'is_new_client': is_new or not client.name,
+        'is_new_client': is_new,
         'client': {
             'id':    str(client.id),
             'phone': client.phone,

@@ -38,6 +38,8 @@ state = {
     'service_id':   None,
     'package_id':   None,
     'appointment_id': None,
+    # Telefone único por execução — garante is_new_client=True
+    'client_phone': f"199{datetime.now().strftime('%H%M%S%f')[:8]}",
     'errors':       [],
     'passed':       0,
     'failed':       0,
@@ -211,7 +213,7 @@ def test_professionals_public():
 def test_client_auth():
     title("M3 — Auth cliente: código via WhatsApp")
     slug  = state['slug']
-    phone = "19988887777"
+    phone = state['client_phone']
 
     # Solicita código
     resp = requests.post(f"{BASE_URL}/b/{slug}/auth/request-code/", json={"phone": phone})
@@ -443,7 +445,7 @@ def test_packages_owner():
     if state['package_id']:
         resp = requests.post(f"{API_URL}/packages/assign/", headers=owner_headers(), json={
             "package_id":   state['package_id'],
-            "client_phone": "19988887777",
+            "client_phone": state['client_phone'],
             "client_name":  "João Silva",
         })
         if assert_status(resp, 201, "POST /api/packages/assign/"):
