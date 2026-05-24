@@ -1,359 +1,258 @@
-# softwaresalao
-Plataforma de Gestão com Atendimento Inteligente por WhatsApp
+# Beauti Frontend
 
-# Frontend - Software Salão
-
-Frontend do projeto Software Salão desenvolvido com Next.js, React, TypeScript e preparado para funcionamento como PWA (Progressive Web App).
+Frontend do sistema de gestão para barbearias e salões, desenvolvido com Next.js 15, React 18 e TypeScript. Preparado para funcionar como PWA (Progressive Web App).
 
 ---
 
-# Stack Tecnológica
+## Stack tecnológica
 
-## Framework
-
-- Next.js 15.5.18
-- React 18.3.1
-- React DOM 18.3.1
-- TypeScript 5.x
-
-## UI e Componentes
-
-- Radix UI
-- Lucide React
-- Tailwind CSS 3.4
-- Tailwind Merge
-- Class Variance Authority (CVA)
-
-## Formulários e Validação
-
-- React Hook Form
-- Zod
-- @hookform/resolvers
-
-## Estado Global
-
-- Zustand
-
-## Integração HTTP
-
-- Axios
-
-## Datas
-
-- date-fns
-
-## Gráficos
-
-- Recharts
-
-## Notificações
-
-- Sonner
-
-## Qualidade de Código
-
-- ESLint 9
-- eslint-config-next 15
-
-## PWA
-
-- Serwist
-- Manifest Web App
-- Service Worker
+| Categoria | Tecnologia | Versão |
+|---|---|---|
+| Framework | Next.js | 15.5.18 |
+| UI | React + React DOM | 18.3.1 |
+| Linguagem | TypeScript | ^5 |
+| Estilização | Tailwind CSS | 3.4 |
+| Componentes | Radix UI | latest |
+| Ícones | Lucide React | latest |
+| Formulários | React Hook Form + Zod | latest |
+| Estado global | Zustand | latest |
+| HTTP | Axios | latest |
+| Datas | date-fns | latest |
+| Gráficos | Recharts | latest |
+| Notificações | Sonner | latest |
+| PWA | Serwist + @serwist/next | latest |
+| Linting | ESLint | 9.39.4 |
 
 ---
 
-# Versões Homologadas
+## Estrutura de pastas
 
-```json
-{
-  "next": "15.5.18",
-  "react": "18.3.1",
-  "react-dom": "18.3.1",
-  "typescript": "^5",
-  "eslint": "9.39.4",
-  "eslint-config-next": "15.5.18",
-  "serwist": "latest",
-  "@serwist/next": "latest"
-}
 ```
-
----
-
-# Estrutura do Projeto
-
-```text
 frontend/
-│
 ├── app/
-│   ├── layout.tsx
-│   ├── page.tsx
-│   ├── globals.css
-│   └── sw.ts
-│
-├── lib/
-│
-├── public/
-│   ├── manifest.json
-│   ├── sw.js
-│   └── icons/
-│       ├── icon-192.png
-│       └── icon-512.png
-│
-├── node_modules/
-│
-├── next.config.js
-├── tailwind.config.ts
-├── tsconfig.json
-├── package.json
-└── package-lock.json
-```
-
----
-
-# Organização Recomendada
-
-Conforme o projeto evoluir:
-
-```text
-app/
-│
-├── (auth)/
-│   ├── login/
-│   └── recuperar-senha/
-│
-├── dashboard/
-│
-├── agenda/
-│   ├── agendamentos/
-│   ├── bloqueios/
-│   ├── profissionais/
-│   └── servicos/
-│
-├── clientes/
-│
-├── financeiro/
-│
-├── estoque/
-│
-├── fidelidade/
-│
-├── configuracoes/
-│
-└── agent/
-```
-
----
-
-# Estrutura Recomendada para Crescimento
-
-```text
-frontend/
-│
-├── app/
+│   ├── layout.tsx              # Root layout + PWA meta tags
+│   ├── page.tsx                # Redirect → /painel ou /login
+│   ├── globals.css             # Design system + variáveis CSS
+│   │
+│   ├── (auth)/                 # Grupo sem layout do painel
+│   │   ├── login/
+│   │   │   └── page.tsx
+│   │   └── cadastro/
+│   │       └── page.tsx
+│   │
+│   ├── setup/                  # Wizard de primeiro acesso (4 passos)
+│   │   └── page.tsx
+│   │
+│   ├── painel/                 # Painel do barbeiro (owner/manager)
+│   │   ├── layout.tsx          # Sidebar desktop + BottomNav mobile
+│   │   ├── page.tsx            # Dashboard
+│   │   ├── agenda/
+│   │   │   ├── page.tsx        # Agenda do dia / semana
+│   │   │   └── novo/
+│   │   │       └── page.tsx    # Novo agendamento
+│   │   ├── clientes/
+│   │   │   ├── page.tsx        # Lista + insights CRM
+│   │   │   └── [id]/
+│   │   │       └── page.tsx    # Perfil do cliente
+│   │   ├── financeiro/
+│   │   │   └── page.tsx        # Caixa, relatório, comissões
+│   │   ├── produtos/
+│   │   │   └── page.tsx        # Estoque e produtos
+│   │   └── configuracoes/
+│   │       └── page.tsx        # Estabelecimento, agente, plano
+│   │
+│   ├── profissional/           # Tela do profissional (mobile-first)
+│   │   ├── layout.tsx
+│   │   └── page.tsx            # Minha agenda do dia
+│   │
+│   └── b/                      # Área pública do cliente final
+│       ├── page.tsx            # Discovery — busca barbearias
+│       └── [slug]/
+│           ├── page.tsx        # Perfil da barbearia
+│           ├── agendar/
+│           │   └── page.tsx    # Fluxo de agendamento
+│           └── minha-conta/
+│               └── page.tsx    # Meus agendamentos
 │
 ├── components/
-│   ├── ui/
-│   ├── forms/
+│   ├── ui/                     # Shadcn/UI components
 │   ├── layout/
-│   ├── dashboard/
+│   │   ├── Sidebar.tsx         # Navegação desktop
+│   │   ├── BottomNav.tsx       # Navegação mobile (tab bar)
+│   │   └── Header.tsx
 │   ├── agenda/
-│   └── clientes/
-│
-├── hooks/
-│
-├── services/
-│   ├── api.ts
-│   ├── auth.ts
-│   ├── agenda.ts
-│   ├── clientes.ts
-│   ├── profissionais.ts
-│   └── agent.ts
-│
-├── store/
-│
-├── types/
-│
-├── utils/
+│   │   ├── AgendaDay.tsx
+│   │   ├── AppointmentCard.tsx
+│   │   └── NewAppointmentModal.tsx
+│   ├── comanda/
+│   │   ├── CommandaSheet.tsx   # Drawer da comanda
+│   │   └── CheckoutModal.tsx
+│   ├── dashboard/
+│   │   ├── DashboardStats.tsx
+│   │   └── RevenueChart.tsx
+│   └── public/
+│       ├── BarbershopCard.tsx
+│       └── BookingFlow.tsx
 │
 ├── lib/
+│   ├── api.ts                  # Cliente HTTP (Axios) + endpoints
+│   ├── store.ts                # Estado global (Zustand)
+│   └── utils.ts                # Helpers
 │
-└── public/
+├── public/
+│   ├── manifest.json           # PWA manifest
+│   └── icons/                  # Ícones PWA (192x192, 512x512)
+│
+├── next.config.js              # Next.js + Serwist (PWA)
+├── tailwind.config.ts          # Design system Beauti
+├── tsconfig.json
+├── postcss.config.js
+└── .env.local                  # Variáveis de ambiente
 ```
 
 ---
 
-# Integração com Backend Django
+## Interfaces do sistema
 
-Backend principal:
-
-```text
-https://softwaresalao.onrender.com
 ```
+/login              → Autenticação do barbeiro
+/cadastro           → Cadastro novo tenant (trial 14 dias)
+/setup              → Wizard de configuração inicial (4 passos)
 
-API:
+/painel             → Dashboard do barbeiro
+/painel/agenda      → Agenda do dia / semana + comanda
+/painel/clientes    → CRM: lista, perfil, insights
+/painel/financeiro  → Caixa do dia, relatório mensal, comissões
+/painel/produtos    → Estoque e produtos
+/painel/configuracoes → Dados, agente WhatsApp, plano
 
-```text
-https://softwaresalao.onrender.com/api
-```
+/profissional       → Tela do profissional (mobile-first)
 
-Estrutura recomendada:
-
-```text
-services/
-└── api.ts
-```
-
-Exemplo:
-
-```typescript
-import axios from "axios";
-
-export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
-});
-```
-
-Arquivo:
-
-```env
-NEXT_PUBLIC_API_URL=https://softwaresalao.onrender.com/api
+/b                  → Discovery público (busca barbearias)
+/b/[slug]           → Perfil público da barbearia
+/b/[slug]/agendar   → Agendamento pelo link
+/b/[slug]/minha-conta → Área do cliente final
 ```
 
 ---
 
-# Progressive Web App (PWA)
+## Configuração
 
-O frontend foi preparado para funcionar como aplicativo instalável.
-
-Recursos:
-
-- Instalação Android
-- Instalação iPhone
-- Funcionamento em tela cheia
-- Ícone na tela inicial
-- Service Worker
-- Cache local
-- Manifest Web App
-
-Arquivos envolvidos:
-
-```text
-public/manifest.json
-app/sw.ts
-public/sw.js
-next.config.js
-```
-
----
-
-# Comandos do Projeto
-
-Instalar dependências:
+### 1. Instalar dependências
 
 ```bash
+cd frontend
 npm install
 ```
 
-Executar ambiente local:
+### 2. Variáveis de ambiente
+
+Crie o arquivo `.env.local` na pasta `frontend/`:
+
+```env
+NEXT_PUBLIC_API_URL=https://softwaresalao.onrender.com
+```
+
+Para desenvolvimento local com backend local:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+### 3. Rodar em desenvolvimento
 
 ```bash
 npm run dev
 ```
 
-Build produção:
+Acesse: [http://localhost:3000](http://localhost:3000)
+
+### 4. Build para produção
 
 ```bash
 npm run build
-```
-
-Executar build local:
-
-```bash
-npm run start
-```
-
-Lint:
-
-```bash
-npm run lint
+npm start
 ```
 
 ---
 
-# Roadmap Frontend
+## PWA
 
-## Fase 1
+O projeto usa **Serwist** (`@serwist/next`) para Progressive Web App.
 
-- Login JWT
-- Dashboard
-- Profissionais
-- Serviços
-- Agenda
+- Service Worker registrado automaticamente no build
+- Manifest configurado em `public/manifest.json`
+- Tema: `#6366F1` (indigo)
+- Start URL: `/painel`
+- Display: `standalone` (sem barra do navegador)
 
-## Fase 2
+### Instalar como app
 
-- Clientes
-- Histórico
-- Financeiro
-- Comissões
+**Android (Chrome):** banner automático aparece após a primeira visita.
 
-## Fase 3
+**iPhone (Safari):** toque em "Compartilhar" → "Adicionar à Tela de Início".
 
-- Estoque
-- Fidelidade
-- Relatórios
-
-## Fase 4
-
-- Aplicativo Cliente
-- Agendamento Online
-- Pagamento Online
-
-## Fase 5
-
-- Agent IA
-- WhatsApp
-- Automações
-- Confirmação automática de agendamentos
+**Desktop (Chrome/Edge):** ícone de instalação na barra de endereços.
 
 ---
 
-# Arquitetura
+## Conexão com o backend
 
-```text
-Frontend (Next.js)
-        │
-        ▼
-API Gateway
-        │
-        ▼
-Backend Django
-        │
- ┌──────┼──────┐
- ▼      ▼      ▼
-Tenant Agenda Agent
-        │
-        ▼
- PostgreSQL
-```
+O frontend se conecta à API Django em `NEXT_PUBLIC_API_URL`.
+
+Dois tokens JWT são usados:
+
+| Token | Header | Quem usa |
+|---|---|---|
+| `beauti_token` | `Bearer {token}` | Barbeiro (owner/manager) |
+| `beauti_client_token` | `ClientBearer {token}` | Cliente final |
+
+Refresh automático: quando o token expira, o interceptor do Axios renova automaticamente usando o `beauti_refresh`.
 
 ---
 
-# Objetivo
+## Design system
 
-Construir uma plataforma SaaS multi-tenant para:
+Cores principais:
 
-- Barbearias
-- Salões de beleza
-- Clínicas estéticas
-- Studios de beleza
+| Nome | Hex | Uso |
+|---|---|---|
+| Primary | `#6366F1` | Botões, links, destaques |
+| Background | `#F8FAFC` | Fundo das páginas |
+| Card | `#FFFFFF` | Cards e painéis |
+| Border | `hsl(220 13% 91%)` | Bordas e divisores |
 
-com:
+Status de agendamentos:
 
-- Gestão completa
-- Agenda online
-- Aplicativo PWA
-- Inteligência Artificial
-- WhatsApp integrado
-- Modelo SaaS por assinatura
+| Status | Cor |
+|---|---|
+| pending | Amber |
+| confirmed | Indigo |
+| in_comanda | Purple |
+| completed | Emerald |
+| cancelled | Red |
+| no_show | Slate |
+
+---
+
+## Backend (API)
+
+Repositório do backend Django: `softwaresalao/`
+
+Documentação da API: consultar os arquivos de teste:
+- `test_api.py` — Etapas 1, 2, 3 e 4
+- `test_agent.py` — Agente WhatsApp
+- `test_m3.py` — Perfil público + Auth cliente
+- `test_crm.py` — CRM e assinaturas
+- `test_m5.py` — Financeiro, comanda e estoque
+
+---
+
+## Sprints de desenvolvimento
+
+- [x] Sprint 0 — Setup inicial, PWA, design system
+- [ ] Sprint 1 — Login, cadastro, setup wizard
+- [ ] Sprint 2 — Painel: dashboard e agenda
+- [ ] Sprint 3 — Painel: comanda, CRM, financeiro
+- [ ] Sprint 4 — Tela do profissional
+- [ ] Sprint 5 — Discovery público + área do cliente

@@ -243,3 +243,5 @@ frontend/pnpm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+# Service Worker gerado automaticamente
+frontend/public/sw.js
