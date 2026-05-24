@@ -10,5 +10,6 @@ urlpatterns = [
     path('api/', include('agent.urls')),
     path('api/', include('clients.urls')),
     path('',     include('public.urls')),
+    path('api/', include('financial.urls')),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
 ]

@@ -184,6 +184,7 @@ class Appointment(models.Model):
     class Status(models.TextChoices):
         PENDING   = 'pending',   'Aguardando confirmação'
         CONFIRMED = 'confirmed', 'Confirmado'
+        IN_COMANDA = 'in_comanda', 'Em atendimento'
         COMPLETED = 'completed', 'Realizado'
         CANCELLED = 'cancelled', 'Cancelado'
         NO_SHOW   = 'no_show',   'Não compareceu'
