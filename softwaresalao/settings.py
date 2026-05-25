@@ -56,6 +56,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -152,9 +153,9 @@ SIMPLE_JWT = {
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',   # React dev
-    'http://localhost:5173',   # Vite dev
-    'https://beautiapp.com.br',
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://192.168.15.113:3000",
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
@@ -163,7 +164,6 @@ CORS_ALLOW_HEADERS = [
     'content-type',
     'x-tenant-slug',   # header para identificar tenant (app mobile / Postman)
 ]
-
 
 # ── E-mail ────────────────────────────────────────────────────────────────────
 # Em desenvolvimento: exibe e-mails no console
