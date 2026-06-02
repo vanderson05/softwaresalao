@@ -332,9 +332,16 @@ class Tenant(models.Model):
 class TenantUser(models.Model):
 
     class Role(models.TextChoices):
-        OWNER        = 'owner',        'Dono'
-        MANAGER      = 'manager',      'Gerente'
+        OWNER        = 'owner',        'Proprietário'
+        MANAGER      = 'manager',      'Administrativo'
+        RECEPTIONIST = 'receptionist', 'Agenda completa'
         PROFESSIONAL = 'professional', 'Profissional'
+
+    title = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Cargo personalizado. Ex: Recepcionista, Gerente, Sócio"
+    )
 
     tenant     = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='tenant_users')
     user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tenant_users')

@@ -218,7 +218,17 @@ def comanda_view(request, appointment_id):
 
         # Se nova comanda, adiciona o serviço do agendamento automaticamente
         if created:
-            commission_pct = appointment.professional.commission_pct if appointment.professional else 0
+            #commission_pct = appointment.professional.commission_pct if appointment.professional else 0
+            if product_id:
+                # Produto não gera comissão
+                commission_pct = 0.0
+            else:
+                # Serviço extra — usa a do profissional por padrão
+                commission_pct = float(request.data.get(
+                    'commission_pct',
+                    appointment.professional.commission_pct if appointment.professional else 0
+                ))
+                        
             CommandaItem.objects.create(
                 comanda        = comanda,
                 description    = appointment.service.name,
@@ -445,6 +455,9 @@ def cashbox_view(request):
     ?date=2026-05-23  (padrão: hoje)
     """
     tenant   = request.tenant
+    if request.tenant_role == 'receptionist':
+        return Response({'error': 'Sem permissão para acessar o financeiro.'}, status=403)
+
     date_str = request.query_params.get('date', date.today().isoformat())
 
     try:

@@ -18,7 +18,7 @@ export default function LoginPage() {
     try {
       const { data } = await authApi.login({ email, password })
       setAuthTokens(data.tokens.access, data.tokens.refresh)
-      setAuth(data.user, data.tenant, data.role)
+      setAuth(data.user, data.tenant, data.role, data.professional_id)
       toast.success('Bem-vindo de volta!')
       router.replace(data.tenant.setup_completed ? '/painel' : '/setup')
     } catch (err: any) {

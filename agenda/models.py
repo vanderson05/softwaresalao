@@ -19,6 +19,14 @@ class Professional(models.Model):
         (60, '60 minutos'),
         (90, '90 minutos'),
     ]
+    user = models.OneToOneField(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='professional_profile',
+        help_text="Usuário do sistema vinculado a este profissional",
+    )
 
     id             = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant         = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='professionals')
@@ -62,6 +70,17 @@ class Professional(models.Model):
             Q(professionals=self) | Q(professionals=None)
         ).distinct()
 
+    class CommissionFrequency(models.TextChoices):
+        DAILY    = 'daily',    'Diário'
+        WEEKLY   = 'weekly',   'Semanal'
+        BIWEEKLY = 'biweekly', 'Quinzenal'
+        MONTHLY  = 'monthly',  'Mensal'
+
+    commission_frequency = models.CharField(
+        max_length=10,
+        choices=CommissionFrequency.choices,
+        default=CommissionFrequency.MONTHLY,
+    )
 
 class Service(models.Model):
     """

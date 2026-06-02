@@ -1,6 +1,7 @@
 # financial/models.py
 
 import uuid
+from django.utils import timezone
 from django.db import models
 from tenants.models import Tenant
 
@@ -211,3 +212,74 @@ class CashEntry(models.Model):
 
     def __str__(self):
         return f"R${self.amount} — {self.payment_method} — {self.created_at:%d/%m/%Y}"
+
+
+class Expense(models.Model):
+    """Despesa lançada manualmente pelo dono/gerente."""
+ 
+    class Category(models.TextChoices):
+        RENT        = 'rent',        'Aluguel'
+        ENERGY      = 'energy',      'Energia elétrica'
+        WATER       = 'water',       'Água'
+        INTERNET    = 'internet',    'Internet'
+        PRODUCT     = 'product',     'Compra de produto'
+        SALARY      = 'salary',      'Salário fixo'
+        COMMISSION  = 'commission',  'Comissão'
+        MAINTENANCE = 'maintenance', 'Manutenção'
+        MARKETING   = 'marketing',   'Marketing'
+        OTHER       = 'other',       'Outros'
+ 
+    id          = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant      = models.ForeignKey('tenants.Tenant', on_delete=models.CASCADE, related_name='expenses')
+    category    = models.CharField(max_length=20, choices=Category.choices, default=Category.OTHER)
+    description = models.CharField(max_length=200)
+    amount      = models.DecimalField(max_digits=10, decimal_places=2)
+    date        = models.DateField(default=timezone.now)
+    notes       = models.TextField(blank=True)
+    created_by  = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+ 
+    class Meta:
+        ordering = ['-date', '-created_at']
+ 
+    def __str__(self):
+        return f"{self.get_category_display()} — R${self.amount} ({self.date})"
+ 
+ 
+class AccountsPayable(models.Model):
+    """Conta a pagar — recorrente ou única."""
+ 
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pendente'
+        PAID    = 'paid',    'Pago'
+        OVERDUE = 'overdue', 'Em atraso'
+ 
+    class Recurrence(models.TextChoices):
+        ONCE    = 'once',    'Única'
+        MONTHLY = 'monthly', 'Mensal'
+        WEEKLY  = 'weekly',  'Semanal'
+ 
+    id          = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant      = models.ForeignKey('tenants.Tenant', on_delete=models.CASCADE, related_name='accounts_payable')
+    description = models.CharField(max_length=200)
+    category    = models.CharField(max_length=20, choices=Expense.Category.choices, default=Expense.Category.OTHER)
+    amount      = models.DecimalField(max_digits=10, decimal_places=2)
+    due_date    = models.DateField()
+    recurrence  = models.CharField(max_length=10, choices=Recurrence.choices, default=Recurrence.ONCE)
+    status      = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    notes       = models.TextField(blank=True)
+    paid_at     = models.DateTimeField(null=True, blank=True)
+    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    created_by  = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+ 
+    class Meta:
+        ordering = ['due_date', '-created_at']
+ 
+    @property
+    def is_overdue(self):
+        from datetime import date
+        return self.status == 'pending' and self.due_date < date.today()
+ 
+    def __str__(self):
+        return f"{self.description} — R${self.amount} vence {self.due_date}"

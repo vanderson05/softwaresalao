@@ -4,93 +4,204 @@
 import { useEffect, useState } from 'react'
 import {
   Building2, Users, Scissors, Bot, CreditCard,
-  X, Plus, ChevronRight, Check, Save, Trash2,
-  Clock, Settings
+  X, Plus, Save, Trash2, Settings
 } from 'lucide-react'
 import { setupApi, professionalsApi, servicesApi, agentApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 import { usePermissions } from '@/lib/hooks/usePermissions'
+import { TeamTab } from '@/components/configuracoes/TeamTab'
 import { toast } from 'sonner'
 
-function Skeleton({ className = '' }: { className?: string }) { return <div className={`bg-white/[0.05] rounded-xl animate-pulse ${className}`} /> }
+function Skeleton({ className = '' }: { className?: string }) {
+  return <div className={`bg-white/[0.05] rounded-xl animate-pulse ${className}`} />
+}
+
 const inputClass = "w-full h-11 px-4 rounded-xl bg-white/[0.06] border border-white/10 text-white placeholder-white/20 text-sm focus:outline-none focus:border-[#6366f1]/60 focus:ring-1 focus:ring-[#6366f1]/40 transition-colors"
 
 const WEEKDAYS = [
-  { id: 0, label: 'Segunda' }, { id: 1, label: 'Terça' }, { id: 2, label: 'Quarta' },
-  { id: 3, label: 'Quinta' }, { id: 4, label: 'Sexta' }, { id: 5, label: 'Sábado' }, { id: 6, label: 'Domingo' },
+  { id: 0, label: 'Segunda' }, { id: 1, label: 'Terça'  }, { id: 2, label: 'Quarta'  },
+  { id: 3, label: 'Quinta'  }, { id: 4, label: 'Sexta'  }, { id: 5, label: 'Sábado'  },
+  { id: 6, label: 'Domingo' },
 ]
 
 const PLAN_INFO: Record<string, { label: string; color: string; description: string }> = {
-  trial:      { label: 'Trial',      color: 'text-amber-400',  description: '14 dias de acesso completo'          },
-  starter:    { label: 'Starter',    color: 'text-slate-400',  description: '1 profissional · R$99,90/mês'        },
-  pro:        { label: 'Pro',        color: 'text-indigo-400', description: 'Até 5 profissionais · R$149,90/mês'  },
-  advanced:   { label: 'Advanced',   color: 'text-purple-400', description: 'Até 15 profissionais · R$199,90/mês' },
-  enterprise: { label: 'Enterprise', color: 'text-emerald-400',description: 'Ilimitado · R$279,90/mês'            },
+  trial:      { label: 'Trial',      color: 'text-amber-400',   description: '14 dias de acesso completo'          },
+  starter:    { label: 'Starter',    color: 'text-slate-400',   description: '1 profissional · R$99,90/mês'        },
+  pro:        { label: 'Pro',        color: 'text-indigo-400',  description: 'Até 5 profissionais · R$149,90/mês'  },
+  advanced:   { label: 'Advanced',   color: 'text-purple-400',  description: 'Até 15 profissionais · R$199,90/mês' },
+  enterprise: { label: 'Enterprise', color: 'text-emerald-400', description: 'Ilimitado · R$279,90/mês'            },
 }
 
-type Tab = 'estabelecimento' | 'profissionais' | 'servicos' | 'agente' | 'plano'
+type Tab = 'estabelecimento' | 'profissionais' | 'servicos' | 'agente' | 'equipe' | 'plano'
 
 // ── Professional Sheet ────────────────────────────────────────
-function ProfessionalSheet({ prof, onClose, onSaved }: { prof?: any; onClose: () => void; onSaved: () => void }) {
+const FREQUENCY_OPTIONS = [
+  { value: 'daily',    label: 'Diário',     desc: 'Pago todo dia'          },
+  { value: 'weekly',   label: 'Semanal',    desc: 'Toda segunda-feira'     },
+  { value: 'biweekly', label: 'Quinzenal',  desc: 'Dias 16 e 1° do mês'   },
+  { value: 'monthly',  label: 'Mensal',     desc: 'Dia 5 do mês seguinte'  },
+]
+
+
+export function ProfessionalSheet({
+  prof, onClose, onSaved
+}: {
+  prof?: any; onClose: () => void; onSaved: () => void
+}) {
   const isEdit = !!prof
   const [form, setForm] = useState({
-    name:            prof?.name            || '',
-    commission_pct:  prof?.commission_pct  || '40',
-    slot_interval:   prof?.slot_interval   || '30',
-    employment_type: prof?.employment_type || 'commissioned',
+    name:                 prof?.name                 || '',
+    commission_pct:       prof?.commission_pct        || '40',
+    slot_interval:        prof?.slot_interval         || '30',
+    employment_type:      prof?.employment_type       || 'commissioned',
+    commission_frequency: prof?.commission_frequency  || 'monthly',
   })
   const [loading, setLoading] = useState(false)
-
+ 
   async function handleSave() {
     if (!form.name) { toast.error('Informe o nome.'); return }
     setLoading(true)
     try {
+      const payload = {
+        ...form,
+        commission_pct:  Number(form.commission_pct),
+        slot_interval:   Number(form.slot_interval),
+      }
       if (isEdit) {
-        await professionalsApi.update(prof.id, { ...form, commission_pct: Number(form.commission_pct), slot_interval: Number(form.slot_interval) })
+        await professionalsApi.update(prof.id, payload)
       } else {
-        await professionalsApi.create({ ...form, commission_pct: Number(form.commission_pct), slot_interval: Number(form.slot_interval) })
+        await professionalsApi.create(payload)
       }
       toast.success(isEdit ? 'Profissional atualizado!' : 'Profissional criado!')
       onSaved()
     } catch { toast.error('Erro ao salvar.') }
     finally { setLoading(false) }
   }
-
+ 
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 md:left-auto md:right-6 md:bottom-6 md:w-[420px] z-50 bg-[#0D0D14] border border-white/10 rounded-t-3xl md:rounded-2xl shadow-2xl" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="md:hidden flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-white/20 rounded-full" /></div>
-        <div className="flex items-center justify-between px-5 pt-4 pb-4 border-b border-white/[0.06]">
-          <h3 className="text-white font-bold text-base">{isEdit ? 'Editar profissional' : 'Novo profissional'}</h3>
-          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center text-white/30 hover:text-white"><X size={18} /></button>
+      <div
+        className="fixed bottom-0 left-0 right-0 md:left-auto md:right-6 md:bottom-6 md:w-[440px] z-50 bg-[#0D0D14] border border-white/10 rounded-t-3xl md:rounded-2xl shadow-2xl overflow-y-auto"
+        style={{ maxHeight: '88vh', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="md:hidden flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 bg-white/20 rounded-full" />
         </div>
-        <div className="px-5 py-4 space-y-4">
-          <div><label className="text-white/50 text-sm block mb-1.5">Nome *</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Carlos Silva" className={inputClass} style={{ fontSize: '16px' }} /></div>
+ 
+        <div className="flex items-center justify-between px-5 pt-4 pb-4 border-b border-white/[0.06]">
+          <h3 className="text-white font-bold text-base">
+            {isEdit ? 'Editar profissional' : 'Novo profissional'}
+          </h3>
+          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center text-white/30 hover:text-white">
+            <X size={18} />
+          </button>
+        </div>
+ 
+        <div className="px-5 py-4 space-y-5">
+          {/* Nome */}
+          <div>
+            <label className="text-white/50 text-sm block mb-1.5">Nome *</label>
+            <input
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              placeholder="Carlos Silva"
+              className={inputClass}
+              style={{ fontSize: '16px' }}
+            />
+          </div>
+ 
+          {/* Comissão e slot */}
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-white/50 text-sm block mb-1.5">Comissão (%)</label><input type="number" value={form.commission_pct} onChange={e => setForm(f => ({ ...f, commission_pct: e.target.value }))} className={inputClass} style={{ fontSize: '16px' }} /></div>
             <div>
-              <label className="text-white/50 text-sm block mb-1.5">Intervalo de slot</label>
-              <select value={form.slot_interval} onChange={e => setForm(f => ({ ...f, slot_interval: e.target.value }))} className={inputClass} style={{ fontSize: '16px' }}>
+              <label className="text-white/50 text-sm block mb-1.5">Comissão (%)</label>
+              <input
+                type="number"
+                value={form.commission_pct}
+                onChange={e => setForm(f => ({ ...f, commission_pct: e.target.value }))}
+                className={inputClass}
+                style={{ fontSize: '16px' }}
+              />
+            </div>
+            <div>
+              <label className="text-white/50 text-sm block mb-1.5">Intervalo slot</label>
+              <select
+                value={form.slot_interval}
+                onChange={e => setForm(f => ({ ...f, slot_interval: e.target.value }))}
+                className={inputClass}
+                style={{ fontSize: '16px' }}
+              >
                 {[15,20,30,45,60].map(v => <option key={v} value={v}>{v} min</option>)}
               </select>
             </div>
           </div>
+ 
+          {/* Tipo de vínculo */}
           <div>
             <label className="text-white/50 text-sm block mb-2">Tipo de vínculo</label>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { v: 'commissioned', l: 'Comissionado', d: 'Pode cancelar próprios' },
-                { v: 'employed',     l: 'Contratado',   d: 'Não cancela sozinho'    },
+                { v: 'commissioned', l: 'Comissionado', d: 'Recebe % por atendimento' },
+                { v: 'employed',     l: 'Contratado',   d: 'Salário fixo'             },
               ].map(({ v, l, d }) => (
-                <button key={v} onClick={() => setForm(f => ({ ...f, employment_type: v }))} className={`p-3 rounded-xl border text-left transition-all active:scale-[0.98] ${form.employment_type === v ? 'bg-[#6366f1]/15 border-[#6366f1]/40' : 'bg-white/[0.04] border-white/[0.08]'}`}>
+                <button
+                  key={v}
+                  onClick={() => setForm(f => ({ ...f, employment_type: v }))}
+                  className={`p-3 rounded-xl border text-left transition-all active:scale-[0.98] ${
+                    form.employment_type === v
+                      ? 'bg-[#6366f1]/15 border-[#6366f1]/40'
+                      : 'bg-white/[0.04] border-white/[0.08]'
+                  }`}
+                >
                   <div className={`text-sm font-medium ${form.employment_type === v ? 'text-white' : 'text-white/50'}`}>{l}</div>
                   <div className="text-white/30 text-xs mt-0.5">{d}</div>
                 </button>
               ))}
             </div>
           </div>
-          <button onClick={handleSave} disabled={loading} className="w-full h-12 bg-[#6366f1] hover:bg-[#4f46e5] text-white font-semibold rounded-xl transition-all active:scale-[0.98] disabled:opacity-50">
+ 
+          {/* Frequência de comissão — só para comissionados */}
+          {form.employment_type === 'commissioned' && (
+            <div>
+              <label className="text-white/50 text-sm block mb-2">
+                Frequência de pagamento de comissão
+              </label>
+              <div className="space-y-2">
+                {FREQUENCY_OPTIONS.map(({ value, label, desc }) => (
+                  <button
+                    key={value}
+                    onClick={() => setForm(f => ({ ...f, commission_frequency: value }))}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-xl border text-left transition-all active:scale-[0.98] ${
+                      form.commission_frequency === value
+                        ? 'bg-amber-500/10 border-amber-500/30'
+                        : 'bg-white/[0.03] border-white/[0.07] hover:border-white/15'
+                    }`}
+                  >
+                    <div>
+                      <div className={`text-sm font-semibold ${form.commission_frequency === value ? 'text-amber-300' : 'text-white/60'}`}>
+                        {label}
+                      </div>
+                      <div className="text-white/30 text-xs mt-0.5">{desc}</div>
+                    </div>
+                    {form.commission_frequency === value && (
+                      <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
+                        <div className="w-2 h-2 rounded-full bg-white" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <p className="text-white/20 text-xs mt-2">
+                Em Financeiro → Comissões você pode gerar os pagamentos a qualquer momento.
+              </p>
+            </div>
+          )}
+ 
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="w-full h-12 bg-[#6366f1] hover:bg-[#4f46e5] text-white font-semibold rounded-xl transition-all active:scale-[0.98] disabled:opacity-50"
+          >
             {loading ? 'Salvando...' : isEdit ? 'Salvar alterações' : 'Criar profissional'}
           </button>
         </div>
@@ -102,7 +213,11 @@ function ProfessionalSheet({ prof, onClose, onSaved }: { prof?: any; onClose: ()
 // ── Service Sheet ─────────────────────────────────────────────
 function ServiceSheet({ service, onClose, onSaved }: { service?: any; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!service
-  const [form, setForm] = useState({ name: service?.name || '', duration_min: service?.duration_min || '30', price: service?.price || '' })
+  const [form, setForm] = useState({
+    name:         service?.name         || '',
+    duration_min: service?.duration_min || '30',
+    price:        service?.price        || '',
+  })
   const [loading, setLoading] = useState(false)
 
   async function handleSave() {
@@ -130,7 +245,10 @@ function ServiceSheet({ service, onClose, onSaved }: { service?: any; onClose: (
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center text-white/30 hover:text-white"><X size={18} /></button>
         </div>
         <div className="px-5 py-4 space-y-4">
-          <div><label className="text-white/50 text-sm block mb-1.5">Nome *</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Corte masculino" className={inputClass} style={{ fontSize: '16px' }} /></div>
+          <div>
+            <label className="text-white/50 text-sm block mb-1.5">Nome *</label>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Corte masculino" className={inputClass} style={{ fontSize: '16px' }} />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-white/50 text-sm block mb-1.5">Duração</label>
@@ -138,7 +256,10 @@ function ServiceSheet({ service, onClose, onSaved }: { service?: any; onClose: (
                 {[15,20,30,45,60,90,120].map(v => <option key={v} value={v}>{v} min</option>)}
               </select>
             </div>
-            <div><label className="text-white/50 text-sm block mb-1.5">Preço (R$) *</label><input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="35" className={inputClass} style={{ fontSize: '16px' }} /></div>
+            <div>
+              <label className="text-white/50 text-sm block mb-1.5">Preço (R$) *</label>
+              <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="35" className={inputClass} style={{ fontSize: '16px' }} />
+            </div>
           </div>
           <button onClick={handleSave} disabled={loading} className="w-full h-12 bg-[#6366f1] hover:bg-[#4f46e5] text-white font-semibold rounded-xl transition-all active:scale-[0.98] disabled:opacity-50">
             {loading ? 'Salvando...' : isEdit ? 'Salvar' : 'Criar serviço'}
@@ -151,9 +272,9 @@ function ServiceSheet({ service, onClose, onSaved }: { service?: any; onClose: (
 
 // ── Main Page ─────────────────────────────────────────────────
 export default function ConfiguracoesPage() {
-  const { tenant, setTenant } = useAuthStore()
-  const { plan, isTrial } = usePermissions()
-  const [tab, setTab] = useState<Tab>('estabelecimento')
+  const { tenant } = useAuthStore()
+  const { plan, isTrial, isOwner } = usePermissions()
+  const [tab,     setTab]     = useState<Tab>('estabelecimento')
   const [loading, setLoading] = useState(false)
 
   // Estabelecimento
@@ -162,13 +283,13 @@ export default function ConfiguracoesPage() {
 
   // Profissionais
   const [professionals, setProfessionals] = useState<any[]>([])
-  const [editProf, setEditProf] = useState<any>(null)
-  const [showNewProf, setShowNewProf] = useState(false)
+  const [editProf,      setEditProf]      = useState<any>(null)
+  const [showNewProf,   setShowNewProf]   = useState(false)
 
   // Serviços
-  const [services, setServices] = useState<any[]>([])
-  const [editSvc, setEditSvc] = useState<any>(null)
-  const [showNewSvc, setShowNewSvc] = useState(false)
+  const [services,  setServices]  = useState<any[]>([])
+  const [editSvc,   setEditSvc]   = useState<any>(null)
+  const [showNewSvc,setShowNewSvc]= useState(false)
 
   // Agente
   const [agentConfig, setAgentConfig] = useState<any>(null)
@@ -177,7 +298,10 @@ export default function ConfiguracoesPage() {
     if (tab === 'estabelecimento') {
       setupApi.establishment().then(({ data }) => {
         setEstab(data)
-        setHours(data.business_hours?.length ? data.business_hours : WEEKDAYS.map(d => ({ weekday: d.id, open_time: '09:00', close_time: '18:00', is_closed: d.id === 6 })))
+        setHours(data.business_hours?.length
+          ? data.business_hours
+          : WEEKDAYS.map(d => ({ weekday: d.id, open_time: '09:00', close_time: '18:00', is_closed: d.id === 6 }))
+        )
       }).catch(() => {})
     }
     if (tab === 'profissionais') {
@@ -234,6 +358,16 @@ export default function ConfiguracoesPage() {
 
   const planInfo = PLAN_INFO[plan] || PLAN_INFO.trial
 
+  // Tabs visíveis — Equipe só para owner
+  const tabs = [
+    { key: 'estabelecimento', label: '🏪 Estabelecimento' },
+    { key: 'profissionais',   label: '👤 Profissionais'   },
+    { key: 'servicos',        label: '✂️ Serviços'        },
+    { key: 'agente',          label: '🤖 Agente IA'       },
+    ...(isOwner ? [{ key: 'equipe', label: '👥 Equipe' }] : []),
+    { key: 'plano',           label: '💎 Plano'           },
+  ]
+
   return (
     <div className="px-4 py-5 md:px-6 md:py-6 max-w-2xl">
       <div className="mb-5">
@@ -243,14 +377,18 @@ export default function ConfiguracoesPage() {
 
       {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1 mb-6" style={{ WebkitOverflowScrolling: 'touch' as any }}>
-        {[
-          { key: 'estabelecimento', label: '🏪 Estabelecimento', icon: Building2 },
-          { key: 'profissionais',   label: '👤 Profissionais',   icon: Users     },
-          { key: 'servicos',        label: '✂️ Serviços',        icon: Scissors  },
-          { key: 'agente',          label: '🤖 Agente IA',       icon: Bot       },
-          { key: 'plano',           label: '💎 Plano',           icon: CreditCard},
-        ].map(({ key, label }) => (
-          <button key={key} onClick={() => setTab(key as Tab)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex-shrink-0 active:scale-95 ${tab === key ? 'bg-[#6366f1] text-white shadow-[0_0_16px_rgba(99,102,241,0.3)]' : 'bg-white/[0.06] text-white/50 border border-white/[0.08]'}`}>{label}</button>
+        {tabs.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key as Tab)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex-shrink-0 active:scale-95 ${
+              tab === key
+                ? 'bg-[#6366f1] text-white shadow-[0_0_16px_rgba(99,102,241,0.3)]'
+                : 'bg-white/[0.06] text-white/50 border border-white/[0.08]'
+            }`}
+          >
+            {label}
+          </button>
         ))}
       </div>
 
@@ -259,11 +397,23 @@ export default function ConfiguracoesPage() {
         <div className="space-y-4 pb-24 md:pb-6">
           {!estab ? <Skeleton className="h-48" /> : (
             <>
-              <div><label className="text-white/50 text-sm block mb-1.5">Nome da barbearia</label><input value={estab.name || ''} disabled className={`${inputClass} opacity-50 cursor-not-allowed`} /></div>
-              <div><label className="text-white/50 text-sm block mb-1.5">Endereço</label><input value={estab.address || ''} onChange={e => setEstab((s: any) => ({ ...s, address: e.target.value }))} placeholder="Rua das Flores, 123" className={inputClass} style={{ fontSize: '16px' }} /></div>
+              <div>
+                <label className="text-white/50 text-sm block mb-1.5">Nome da barbearia</label>
+                <input value={estab.name || ''} disabled className={`${inputClass} opacity-50 cursor-not-allowed`} />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm block mb-1.5">Endereço</label>
+                <input value={estab.address || ''} onChange={e => setEstab((s: any) => ({ ...s, address: e.target.value }))} placeholder="Rua das Flores, 123" className={inputClass} style={{ fontSize: '16px' }} />
+              </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-white/50 text-sm block mb-1.5">Cidade</label><input value={estab.city || ''} onChange={e => setEstab((s: any) => ({ ...s, city: e.target.value }))} placeholder="São Paulo" className={inputClass} style={{ fontSize: '16px' }} /></div>
-                <div><label className="text-white/50 text-sm block mb-1.5">Telefone</label><input value={estab.phone || ''} onChange={e => setEstab((s: any) => ({ ...s, phone: e.target.value }))} placeholder="19999999999" type="tel" className={inputClass} style={{ fontSize: '16px' }} /></div>
+                <div>
+                  <label className="text-white/50 text-sm block mb-1.5">Cidade</label>
+                  <input value={estab.city || ''} onChange={e => setEstab((s: any) => ({ ...s, city: e.target.value }))} placeholder="São Paulo" className={inputClass} style={{ fontSize: '16px' }} />
+                </div>
+                <div>
+                  <label className="text-white/50 text-sm block mb-1.5">Telefone</label>
+                  <input value={estab.phone || ''} onChange={e => setEstab((s: any) => ({ ...s, phone: e.target.value }))} placeholder="19999999999" type="tel" className={inputClass} style={{ fontSize: '16px' }} />
+                </div>
               </div>
               <div>
                 <label className="text-white/50 text-sm block mb-3">Horários de funcionamento</label>
@@ -363,10 +513,10 @@ export default function ConfiguracoesPage() {
                 <div className="text-white/30 text-xs">Configure o token Meta para ativar o agente</div>
               </div>
               {[
-                { field: 'agent_name',    label: 'Nome do agente',   placeholder: 'Beauti Assistente'    },
-                { field: 'wa_phone_number_id', label: 'Phone Number ID (Meta)', placeholder: '1234567890' },
-                { field: 'wa_token',      label: 'Token de acesso (Meta)', placeholder: 'EAABxxxxxx'    },
-                { field: 'wa_verify_token', label: 'Verify Token (webhook)', placeholder: 'beauti_2026' },
+                { field: 'agent_name',         label: 'Nome do agente',         placeholder: 'Beauti Assistente' },
+                { field: 'wa_phone_number_id',  label: 'Phone Number ID (Meta)', placeholder: '1234567890'       },
+                { field: 'wa_token',            label: 'Token de acesso (Meta)', placeholder: 'EAABxxxxxx'       },
+                { field: 'wa_verify_token',     label: 'Verify Token (webhook)', placeholder: 'beauti_2026'      },
               ].map(({ field, label, placeholder }) => (
                 <div key={field}>
                   <label className="text-white/50 text-sm block mb-1.5">{label}</label>
@@ -377,7 +527,10 @@ export default function ConfiguracoesPage() {
                 <label className="text-white/50 text-sm block mb-1.5">Tom do agente</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[{ v: 'formal', l: 'Formal' }, { v: 'friendly', l: 'Amigável' }, { v: 'casual', l: 'Casual' }].map(({ v, l }) => (
-                    <button key={v} onClick={() => setAgentConfig((c: any) => ({ ...c, tone: v }))} className={`py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 ${agentConfig.tone === v ? 'bg-[#6366f1] text-white' : 'bg-white/[0.06] text-white/50 border border-white/[0.08]'}`}>{l}</button>
+                    <button key={v} onClick={() => setAgentConfig((c: any) => ({ ...c, tone: v }))}
+                      className={`py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 ${agentConfig.tone === v ? 'bg-[#6366f1] text-white' : 'bg-white/[0.06] text-white/50 border border-white/[0.08]'}`}>
+                      {l}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -393,6 +546,9 @@ export default function ConfiguracoesPage() {
         </div>
       )}
 
+      {/* ── Equipe ── só para owner */}
+      {tab === 'equipe' && <TeamTab />}
+
       {/* ── Plano ── */}
       {tab === 'plano' && (
         <div className="space-y-4 pb-24 md:pb-6">
@@ -405,13 +561,12 @@ export default function ConfiguracoesPage() {
               </div>
             )}
           </div>
-
           <div className="space-y-2">
             {[
-              { plan: 'starter',    name: 'Starter',    price: 'R$99,90',  profs: '1',    features: ['Agenda', 'Agente WhatsApp IA', 'Link público']              },
-              { plan: 'pro',        name: 'Pro',        price: 'R$149,90', profs: 'até 5', features: ['+ CRM', 'Financeiro', 'Comissões', 'Pacotes', 'Relatórios'] },
-              { plan: 'advanced',   name: 'Advanced',   price: 'R$199,90', profs: 'até 15',features: ['+ Insights IA', 'Domínio customizado', 'Blast promoções']   },
-              { plan: 'enterprise', name: 'Enterprise', price: 'R$279,90', profs: 'ilimitado', features: ['+ Suporte dedicado', 'SLA', 'Onboarding assistido']     },
+              { plan: 'starter',    name: 'Starter',    price: 'R$99,90',  profs: '1',         features: ['Agenda', 'Agente WhatsApp IA', 'Link público']              },
+              { plan: 'pro',        name: 'Pro',        price: 'R$149,90', profs: 'até 5',     features: ['+ CRM', 'Financeiro', 'Comissões', 'Pacotes', 'Relatórios'] },
+              { plan: 'advanced',   name: 'Advanced',   price: 'R$199,90', profs: 'até 15',    features: ['+ Insights IA', 'Domínio customizado', 'Blast promoções']   },
+              { plan: 'enterprise', name: 'Enterprise', price: 'R$279,90', profs: 'ilimitado', features: ['+ Suporte dedicado', 'SLA', 'Onboarding assistido']          },
             ].map(p => (
               <div key={p.plan} className={`bg-white/[0.03] border rounded-2xl p-5 transition-all ${plan === p.plan ? 'border-[#6366f1]/40 bg-[#6366f1]/5' : 'border-white/[0.06]'}`}>
                 <div className="flex items-center justify-between mb-3">
@@ -443,9 +598,9 @@ export default function ConfiguracoesPage() {
 
       {/* Sheets */}
       {showNewProf && <ProfessionalSheet onClose={() => setShowNewProf(false)} onSaved={() => { setShowNewProf(false); professionalsApi.list().then(({ data }) => setProfessionals(data)) }} />}
-      {editProf && <ProfessionalSheet prof={editProf} onClose={() => setEditProf(null)} onSaved={() => { setEditProf(null); professionalsApi.list().then(({ data }) => setProfessionals(data)) }} />}
-      {showNewSvc && <ServiceSheet onClose={() => setShowNewSvc(false)} onSaved={() => { setShowNewSvc(false); servicesApi.list().then(({ data }) => setServices(data)) }} />}
-      {editSvc && <ServiceSheet service={editSvc} onClose={() => setEditSvc(null)} onSaved={() => { setEditSvc(null); servicesApi.list().then(({ data }) => setServices(data)) }} />}
+      {editProf    && <ProfessionalSheet prof={editProf} onClose={() => setEditProf(null)} onSaved={() => { setEditProf(null); professionalsApi.list().then(({ data }) => setProfessionals(data)) }} />}
+      {showNewSvc  && <ServiceSheet onClose={() => setShowNewSvc(false)} onSaved={() => { setShowNewSvc(false); servicesApi.list().then(({ data }) => setServices(data)) }} />}
+      {editSvc     && <ServiceSheet service={editSvc} onClose={() => setEditSvc(null)} onSaved={() => { setEditSvc(null); servicesApi.list().then(({ data }) => setServices(data)) }} />}
     </div>
   )
 }

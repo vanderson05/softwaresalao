@@ -4,7 +4,15 @@
  
 from django.urls import path
 from . import views
- 
+from financial.views_expenses import (
+    expenses_view,
+    expense_detail_view,
+    payables_view,
+    payable_detail_view,
+    financial_overview_view,
+)
+from financial.views_commission import commission_payables_view, generate_commission_payables_view
+
 urlpatterns = [
     # Produtos e estoque
     path('financial/products/',                          views.products_view,          name='products'),
@@ -21,5 +29,15 @@ urlpatterns = [
     path('financial/cashbox/',          views.cashbox_view,        name='cashbox'),
     path('financial/report/monthly/',   views.report_monthly_view, name='report-monthly'),
     path('financial/commissions/',      views.commissions_view,    name='commissions'),
+
+    path('financial/expenses/',           expenses_view,          name='expenses'),
+    path('financial/expenses/<uuid:expense_id>/', expense_detail_view, name='expense-detail'),
+    path('financial/payables/',           payables_view,          name='payables'),
+    path('financial/payables/<uuid:payable_id>/', payable_detail_view, name='payable-detail'),
+    path('financial/overview/',           financial_overview_view, name='financial-overview'),
+
+
+    path('financial/commission-payables/', commission_payables_view),
+    path('financial/commission-payables/generate/', generate_commission_payables_view),
 ]
  

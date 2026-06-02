@@ -4,11 +4,12 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  TrendingUp, Calendar, Clock, Users,
-  ChevronRight, AlertTriangle, Cake, Package,
+  TrendingUp, Calendar, Clock,
+  ChevronRight, Cake, Package,
   CheckCircle2, Circle, XCircle
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/store'
+import { usePermissions } from '@/lib/hooks/usePermissions'
 import { appointmentsApi, financialApi, crmApi } from '@/lib/api'
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -31,11 +32,11 @@ function formatCurrency(value: number) {
 }
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; icon: any; label: string }> = {
-  pending:    { bg: 'bg-amber-500/10',  text: 'text-amber-400',  icon: Circle,       label: 'Pendente'   },
-  confirmed:  { bg: 'bg-indigo-500/10', text: 'text-indigo-400', icon: Clock,        label: 'Confirmado' },
-  completed:  { bg: 'bg-emerald-500/10',text: 'text-emerald-400',icon: CheckCircle2, label: 'Realizado'  },
-  cancelled:  { bg: 'bg-red-500/10',    text: 'text-red-400',    icon: XCircle,      label: 'Cancelado'  },
-  in_comanda: { bg: 'bg-purple-500/10', text: 'text-purple-400', icon: Clock,        label: 'Em atend.'  },
+  pending:    { bg: 'bg-amber-500/10',  text: 'text-amber-400',  icon: Circle,        label: 'Pendente'   },
+  confirmed:  { bg: 'bg-indigo-500/10', text: 'text-indigo-400', icon: Clock,         label: 'Confirmado' },
+  completed:  { bg: 'bg-emerald-500/10',text: 'text-emerald-400',icon: CheckCircle2,  label: 'Realizado'  },
+  cancelled:  { bg: 'bg-red-500/10',    text: 'text-red-400',    icon: XCircle,       label: 'Cancelado'  },
+  in_comanda: { bg: 'bg-purple-500/10', text: 'text-purple-400', icon: Clock,         label: 'Em atend.'  },
 }
 
 // ── Skeleton ──────────────────────────────────────────────────
@@ -51,7 +52,6 @@ function StatCard({
   icon: any; color: string; loading: boolean
 }) {
   if (loading) return <Skeleton className="h-24" />
-
   return (
     <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 flex items-start gap-3 hover:border-white/10 transition-colors">
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
@@ -74,22 +74,15 @@ function AppointmentRow({ appt, onConfirm }: { appt: any; onConfirm?: (id: strin
 
   return (
     <div className="flex items-center gap-3 py-3 border-b border-white/[0.04] last:border-0 group">
-      {/* Hora */}
       <div className="text-white/50 text-sm font-mono w-12 flex-shrink-0">{time}</div>
-
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="text-white text-sm font-medium truncate">{appt.client_name}</div>
         <div className="text-white/30 text-xs truncate">{appt.service_name} · {appt.professional_name}</div>
       </div>
-
-      {/* Status */}
       <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${status.bg} ${status.text}`}>
         <Icon size={11} />
         <span className="hidden sm:inline">{status.label}</span>
       </div>
-
-      {/* Confirmar pendente */}
       {appt.status === 'pending' && onConfirm && (
         <button
           onClick={() => onConfirm(appt.id)}
@@ -104,8 +97,13 @@ function AppointmentRow({ appt, onConfirm }: { appt: any; onConfirm?: (id: strin
 
 // ── Dashboard Page ────────────────────────────────────────────
 export default function DashboardPage() {
-  const router   = useRouter()
-  const { tenant } = useAuthStore()
+  const router              = useRouter()
+  const { tenant, role }    = useAuthStore()
+  const { hasPermission }   = usePermissions()
+
+  const canViewFinancial    = hasPermission('can_view_financial')  // owner + manager
+  const canViewCRM          = hasPermission('can_view_crm')        // owner + manager + receptionist
+  const canViewProducts     = hasPermission('can_manage_products') // owner + manager
 
   const [loading,      setLoading]      = useState(true)
   const [cashbox,      setCashbox]      = useState<any>(null)
@@ -118,11 +116,29 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [cashRes, agendaRes] = await Promise.all([
-          financialApi.cashbox({ date: today }),
-          appointmentsApi.agendaDay({ date: today }),
-        ])
-        setCashbox(cashRes.data)
+        // Agenda — todos os roles com acesso ao painel podem ver
+        const agendaRes = await appointmentsApi.agendaDay({ date: today })
+
+        // Financeiro — apenas owner e manager
+        if (canViewFinancial) {
+          financialApi.cashbox({ date: today })
+            .then(({ data }) => setCashbox(data))
+            .catch(() => {})
+        }
+
+        // CRM alerts — owner, manager e receptionist
+        if (canViewCRM) {
+          crmApi.birthdays()
+            .then(({ data }) => setBirthdays(data.clients || []))
+            .catch(() => {})
+        }
+
+        // Stock alerts — apenas owner e manager
+        if (canViewProducts) {
+          financialApi.stockAlerts()
+            .then(({ data }) => setStockAlerts(data.alerts || []))
+            .catch(() => {})
+        }
 
         // Aplana agendamentos de todos os profissionais
         const allAppts = (agendaRes.data.professionals || [])
@@ -130,19 +146,11 @@ export default function DashboardPage() {
             ...a,
             professional_name: p.professional.name,
           })))
-          .sort((a: any, b: any) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+          .sort((a: any, b: any) =>
+            new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+          )
 
         setAppointments(allAppts)
-
-        // Carrega aniversários e alertas em background
-        crmApi.birthdays()
-          .then(({ data }) => setBirthdays(data.clients || []))
-          .catch(() => {})
-
-        financialApi.stockAlerts()
-          .then(({ data }) => setStockAlerts(data.alerts || []))
-          .catch(() => {})
-
       } catch (err) {
         console.error(err)
       } finally {
@@ -150,7 +158,7 @@ export default function DashboardPage() {
       }
     }
     loadData()
-  }, [today])
+  }, [today, canViewFinancial, canViewCRM, canViewProducts])
 
   async function handleConfirm(id: string) {
     try {
@@ -180,16 +188,18 @@ export default function DashboardPage() {
         <p className="text-white/30 text-sm mt-0.5 capitalize">{formatDate()}</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <StatCard
-          label="Receita hoje"
-          value={loading ? '—' : formatCurrency(cashbox?.total_revenue || 0)}
-          sub={loading ? '' : `${completed} atendimento${completed !== 1 ? 's' : ''}`}
-          icon={TrendingUp}
-          color="bg-emerald-500"
-          loading={loading}
-        />
+      {/* Stats — financeiro só para owner/manager */}
+      <div className={`grid gap-3 mb-6 ${canViewFinancial ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'}`}>
+        {canViewFinancial && (
+          <StatCard
+            label="Receita hoje"
+            value={loading ? '—' : formatCurrency(cashbox?.total_revenue || 0)}
+            sub={loading ? '' : `${completed} atendimento${completed !== 1 ? 's' : ''}`}
+            icon={TrendingUp}
+            color="bg-emerald-500"
+            loading={loading}
+          />
+        )}
         <StatCard
           label="Agenda hoje"
           value={loading ? '—' : `${completed}/${total}`}
@@ -198,13 +208,15 @@ export default function DashboardPage() {
           color="bg-[#6366f1]"
           loading={loading}
         />
-        <StatCard
-          label="Ticket médio"
-          value={loading ? '—' : formatCurrency(cashbox?.avg_ticket || 0)}
-          icon={TrendingUp}
-          color="bg-purple-500"
-          loading={loading}
-        />
+        {canViewFinancial && (
+          <StatCard
+            label="Ticket médio"
+            value={loading ? '—' : formatCurrency(cashbox?.avg_ticket || 0)}
+            icon={TrendingUp}
+            color="bg-purple-500"
+            loading={loading}
+          />
+        )}
         <StatCard
           label="Pendentes"
           value={loading ? '—' : String(pending)}
@@ -247,11 +259,9 @@ export default function DashboardPage() {
             onClick={() => router.push('/painel/agenda')}
             className="flex items-center gap-1 text-[#6366f1] text-xs font-medium hover:text-[#818cf8] transition-colors"
           >
-            Ver agenda
-            <ChevronRight size={14} />
+            Ver agenda <ChevronRight size={14} />
           </button>
         </div>
-
         <div className="px-5">
           {loading ? (
             <div className="space-y-4 py-4">
@@ -262,7 +272,7 @@ export default function DashboardPage() {
               <Calendar size={32} className="text-white/10 mx-auto mb-2" />
               <p className="text-white/30 text-sm">Nenhum agendamento pendente</p>
               <button
-                onClick={() => router.push('/painel/agenda/novo')}
+                onClick={() => router.push('/painel/agenda')}
                 className="mt-3 text-[#6366f1] text-sm font-medium hover:text-[#818cf8] transition-colors"
               >
                 + Criar agendamento
@@ -276,8 +286,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Caixa por forma de pagamento */}
-      {!loading && cashbox && Object.keys(cashbox.by_payment || {}).length > 0 && (
+      {/* Caixa por forma de pagamento — só owner/manager */}
+      {canViewFinancial && !loading && cashbox && Object.keys(cashbox.by_payment || {}).length > 0 && (
         <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-white/[0.06]">
             <h2 className="text-white font-semibold text-sm">Caixa de hoje por pagamento</h2>

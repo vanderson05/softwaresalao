@@ -21,6 +21,36 @@ class TenantAccessPermission(BasePermission):
         request.tenant_role → string 'owner' | 'manager' | 'professional'
     """
     message = 'Seu período de acesso expirou. Escolha um plano para continuar.'
+    ROLE_PERMISSIONS = {
+    'owner': {
+        'can_manage_team':    True,
+        'can_view_financial': True,
+        'can_manage_agenda':  True,   # todos os profissionais
+        'can_view_crm':       True,
+        'can_manage_config':  True,
+    },
+    'manager': {
+        'can_manage_team':    False,
+        'can_view_financial': True,
+        'can_manage_agenda':  True,
+        'can_view_crm':       True,
+        'can_manage_config':  False,
+    },
+    'receptionist': {
+        'can_manage_team':    False,
+        'can_view_financial': False,
+        'can_manage_agenda':  True,   # todos os profissionais
+        'can_view_crm':       True,   # básico, sem financeiro
+        'can_manage_config':  False,
+    },
+    'professional': {
+        'can_manage_team':    False,
+        'can_view_financial': False,
+        'can_manage_agenda':  False,  # só própria agenda
+        'can_view_crm':       False,
+        'can_manage_config':  False,
+    },
+}
 
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:

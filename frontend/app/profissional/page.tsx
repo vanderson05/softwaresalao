@@ -240,7 +240,7 @@ function CommandaSheet({
 // ── Main Page ─────────────────────────────────────────────────
 export default function ProfissionalPage() {
   const router = useRouter()
-  const { user, tenant, role, clearAuth: clearStore } = useAuthStore()
+  const { user, tenant, role, professional_id, clearAuth: clearStore } = useAuthStore()
   const [appointments, setAppointments] = useState<any[]>([])
   const [loading,      setLoading]      = useState(true)
   const [activeAppt,   setActiveAppt]   = useState<any>(null)
@@ -257,9 +257,23 @@ export default function ProfissionalPage() {
     setLoading(true)
     try {
       const { data } = await appointmentsApi.agendaDay({ date: today })
-      const all = (data.professionals || [])
-        .flatMap((p: any) => p.appointments.map((a: any) => ({ ...a, professional_name: p.professional.name })))
-        .sort((a: any, b: any) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+
+      // Filtra só os agendamentos do profissional logado
+      const myProf = (data.professionals || []).find(
+        (p: any) => p.professional.id === professional_id
+      )
+
+      const all = myProf
+        ? myProf.appointments
+            .map((a: any) => ({
+              ...a,
+              professional_name: myProf.professional.name,
+            }))
+            .sort((a: any, b: any) =>
+              new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+            )
+        : []
+
       setAppointments(all)
     } catch { toast.error('Erro ao carregar agenda.') }
     finally { setLoading(false) }

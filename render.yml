@@ -1,0 +1,58 @@
+# render.yaml
+# Configuração dos serviços no Render
+# Colocar na RAIZ do projeto: softwaresalao/render.yaml
+
+services:
+  # ── Backend Django ──────────────────────────────────────────
+  - type: web
+    name: beauti-backend
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: .
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn softwaresalao.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      - key: DJANGO_SETTINGS_MODULE
+        value: softwaresalao.settings
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "beauti-backend.onrender.com,softwaresalao.onrender.com"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: beauti-db
+          property: connectionString
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://beauti-frontend.onrender.com,http://localhost:3000"
+      - key: OPENAI_API_KEY
+        sync: false  # preencher manualmente no dashboard
+
+  # ── Frontend Next.js ────────────────────────────────────────
+  - type: web
+    name: beauti-frontend
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: frontend
+    buildCommand: "./build_frontend.sh"
+    startCommand: "npm start"
+    envVars:
+      - key: NODE_VERSION
+        value: "20.0.0"
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://beauti-backend.onrender.com"
+      - key: PORT
+        value: "3000"
+
+# ── Banco de dados PostgreSQL ───────────────────────────────
+databases:
+  - name: beauti-db
+    databaseName: beauti
+    user: beauti
+    region: oregon
+    plan: free

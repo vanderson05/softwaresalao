@@ -446,7 +446,7 @@ def book_view(request, slug):
     # Injeta dados do cliente
     data = request.data.copy()
     data['source']       = 'link'
-    data['client_name']  = data.get('client_name', client.name)
+    data['client_name']  = data.get('client_name') or client.name or client.phone
     data['client_phone'] = client.phone
  
     from agenda.serializers_appointment import AppointmentCreateSerializer

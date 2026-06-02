@@ -13,14 +13,30 @@ import { usePermissions } from '@/lib/hooks/usePermissions'
 import { clearAuth } from '@/lib/api'
 
 const NAV_ITEMS = [
-  { key: 'dashboard', label: 'Dashboard',  path: '/painel',           icon: LayoutDashboard, locked: false },
-  { key: 'agenda',    label: 'Agenda',     path: '/painel/agenda',    icon: Calendar,        locked: false },
-  { key: 'crm',       label: 'Clientes',   path: '/painel/clientes',  icon: Users,           locked: false },
-  { key: 'financial', label: 'Financeiro', path: '/painel/financeiro',icon: TrendingUp,      locked: false },
-  { key: 'products',  label: 'Produtos',   path: '/painel/produtos',  icon: Package,         locked: false },
-  { key: 'agent',     label: 'Agente IA',  path: '/painel/agente',    icon: Bot,             locked: false },
-  { key: 'reports',   label: 'Relatórios', path: '/painel/relatorios',icon: BarChart3,       locked: false },
+  { key: 'dashboard', label: 'Dashboard',  path: '/painel',            icon: LayoutDashboard },
+  { key: 'agenda',    label: 'Agenda',     path: '/painel/agenda',     icon: Calendar        },
+  { key: 'crm',       label: 'Clientes',   path: '/painel/clientes',   icon: Users           },
+  { key: 'financial', label: 'Financeiro', path: '/painel/financeiro', icon: TrendingUp      },
+  { key: 'products',  label: 'Produtos',   path: '/painel/produtos',   icon: Package         },
+  { key: 'agent',     label: 'Agente IA',  path: '/painel/agente',     icon: Bot             },
+  { key: 'reports',   label: 'Relatórios', path: '/painel/relatorios', icon: BarChart3       },
 ]
+
+// Plano mínimo necessário para cada módulo
+const MODULE_PLAN: Record<string, string> = {
+  crm:       'Pro',
+  financial: 'Pro',
+  products:  'Pro',
+  reports:   'Pro',
+  agent:     'Starter',
+}
+
+// Permissão de role necessária para cada módulo
+const MODULE_PERMISSION: Record<string, string> = {
+  financial: 'can_view_financial',
+  products:  'can_manage_products',
+  reports:   'can_view_reports',
+}
 
 const PLAN_LABELS: Record<string, string> = {
   trial:      'Trial',
@@ -38,19 +54,11 @@ const PLAN_COLORS: Record<string, string> = {
   enterprise: 'bg-emerald-500/20 text-emerald-400',
 }
 
-const MODULE_PLAN: Record<string, string> = {
-  crm:       'Pro',
-  financial: 'Pro',
-  products:  'Pro',
-  reports:   'Pro',
-  agent:     'Starter',
-}
-
 export default function Sidebar() {
   const pathname = usePathname()
   const router   = useRouter()
   const { tenant, clearAuth: clearStore } = useAuthStore()
-  const { hasModule, plan, isTrial } = usePermissions()
+  const { hasModule, hasPermission, plan, isTrial } = usePermissions()
 
   function handleLogout() {
     clearAuth()
@@ -77,9 +85,28 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map(({ key, label, path, icon: Icon }) => {
-          const locked   = key !== 'dashboard' && !hasModule(key)
-          const active   = key === 'dashboard' ? pathname === '/painel' : pathname.startsWith(path)
-          const reqPlan  = MODULE_PLAN[key]
+          const active = key === 'dashboard'
+            ? pathname === '/painel'
+            : pathname.startsWith(path)
+
+          // Verifica bloqueio por plano
+          const lockedByPlan = key !== 'dashboard' && !hasModule(key)
+
+          // Verifica bloqueio por role (permissão insuficiente)
+          const requiredPerm  = MODULE_PERMISSION[key]
+          const lockedByRole  = requiredPerm ? !hasPermission(requiredPerm) : false
+
+          const locked        = lockedByPlan || lockedByRole
+          const reqPlan       = MODULE_PLAN[key]
+
+          // Tooltip diferente conforme o motivo do bloqueio
+          const tooltipMsg = lockedByRole
+            ? 'Sem permissão para este módulo'
+            : `Disponível no plano ${reqPlan}`
+
+          const lockLabel = lockedByRole
+            ? 'Sem acesso'
+            : reqPlan
 
           return (
             <div key={key}>
@@ -88,14 +115,17 @@ export default function Sidebar() {
                   <Icon size={18} />
                   <span className="text-sm font-medium flex-1">{label}</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-white/20">{reqPlan}</span>
+                    <span className="text-[10px] text-white/20">{lockLabel}</span>
                     <Lock size={12} className="text-white/20" />
                   </div>
-                  {/* Tooltip upgrade */}
+                  {/* Tooltip */}
                   <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-2 text-xs text-white/70 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-                    🔒 Disponível no plano <strong className="text-white">{reqPlan}</strong>
-                    <br />
-                    <span className="text-white/40">Faça upgrade para desbloquear</span>
+                    {lockedByRole ? (
+                      <>🚫 {tooltipMsg}</>
+                    ) : (
+                      <>🔒 Disponível no plano <strong className="text-white">{reqPlan}</strong>
+                      <br /><span className="text-white/40">Faça upgrade para desbloquear</span></>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -119,10 +149,11 @@ export default function Sidebar() {
 
       {/* Bottom */}
       <div className="px-3 py-3 border-t border-white/[0.06] space-y-0.5">
-        {/* Trial banner */}
         {isTrial && (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5 mb-3">
-            <div className="text-amber-400 text-xs font-semibold">Trial — {tenant?.trial_days_remaining || 0} dias restantes</div>
+            <div className="text-amber-400 text-xs font-semibold">
+              Trial — {tenant?.trial_days_remaining || 0} dias restantes
+            </div>
             <div className="text-amber-400/60 text-xs mt-0.5">Assine para não perder o acesso</div>
             <button className="mt-2 w-full bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold py-1.5 rounded-lg transition-colors">
               Ver planos

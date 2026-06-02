@@ -60,10 +60,6 @@ def register_view(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
-    """
-    Login com e-mail e senha.
-    Retorna JWT com claims do tenant.
-    """
     serializer = LoginSerializer(data=request.data)
 
     if not serializer.is_valid():
@@ -75,6 +71,15 @@ def login_view(request):
 
     tokens = serializer.get_tokens(user, tenant, tenant_user)
 
+    # Busca professional_id se role = professional
+    professional_id = None
+    try:
+        prof = user.professional_profile
+        if prof.tenant == tenant:
+            professional_id = str(prof.id)
+    except Exception:
+        pass
+
     return Response({
         'tokens': tokens,
         'user': {
@@ -82,8 +87,10 @@ def login_view(request):
             'email': user.email,
             'name':  f"{user.first_name} {user.last_name}".strip() or user.email,
         },
-        'tenant': TenantBasicSerializer(tenant).data,
-        'role':   tenant_user.role,
+        'tenant':          TenantBasicSerializer(tenant).data,
+        'role':            tenant_user.role,
+        'title':           getattr(tenant_user, 'title', '') or '',
+        'professional_id': professional_id,
     }, status=status.HTTP_200_OK)
 
 
@@ -148,10 +155,6 @@ def resend_verification_view(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def me_view(request):
-    """
-    Retorna dados do usuário e tenant autenticado.
-    Usado pelo frontend para checar sessão ativa.
-    """
     tenant_user = TenantUser.objects.filter(
         user=request.user, is_active=True
     ).select_related('tenant').first()
@@ -164,14 +167,25 @@ def me_view(request):
 
     tenant = tenant_user.tenant
 
+    # Busca professional_id se role = professional
+    professional_id = None
+    try:
+        prof = request.user.professional_profile
+        if prof.tenant == tenant:
+            professional_id = str(prof.id)
+    except Exception:
+        pass
+
     return Response({
         'user': {
             'id':    request.user.id,
             'email': request.user.email,
             'name':  f"{request.user.first_name} {request.user.last_name}".strip(),
         },
-        'tenant':       TenantBasicSerializer(tenant).data,
-        'role':         tenant_user.role,
-        'can_access':   tenant.can_access,
-        'trial_expired': tenant.is_trial_expired,
+        'tenant':          TenantBasicSerializer(tenant).data,
+        'role':            tenant_user.role,
+        'title':           getattr(tenant_user, 'title', '') or '',
+        'professional_id': professional_id,
+        'can_access':      tenant.can_access,
+        'trial_expired':   tenant.is_trial_expired,
     }, status=status.HTTP_200_OK)
