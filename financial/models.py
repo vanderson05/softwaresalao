@@ -1,5 +1,4 @@
 # financial/models.py
-
 import uuid
 from django.utils import timezone
 from django.db import models
@@ -283,3 +282,59 @@ class AccountsPayable(models.Model):
  
     def __str__(self):
         return f"{self.description} — R${self.amount} vence {self.due_date}"
+    
+
+class CommissionEntry(models.Model):
+    """
+    Registro individual de comissão por serviço realizado.
+    Criado automaticamente no checkout da comanda.
+    Só registra serviços — produtos não geram comissão.
+    """
+ 
+    id               = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant           = models.ForeignKey('tenants.Tenant',    on_delete=models.CASCADE, related_name='commission_entries')
+    professional     = models.ForeignKey('agenda.Professional', on_delete=models.SET_NULL, null=True, related_name='commission_entries')
+    appointment      = models.ForeignKey('agenda.Appointment',  on_delete=models.CASCADE, related_name='commission_entries')
+ 
+    # Serviço realizado
+    service_name     = models.CharField(max_length=200)
+    service_price    = models.DecimalField(max_digits=10, decimal_places=2)
+    commission_pct   = models.DecimalField(max_digits=5,  decimal_places=2)
+    commission_amount= models.DecimalField(max_digits=10, decimal_places=2)
+ 
+    # Pagamento
+    payment_method   = models.CharField(max_length=20, default='pix')
+ 
+    # Cliente
+    client_name      = models.CharField(max_length=200, blank=True)
+    client_phone     = models.CharField(max_length=30,  blank=True)
+ 
+    # Data/hora do atendimento
+    service_date     = models.DateField()
+    service_time     = models.TimeField()
+ 
+    # Controle
+    is_paid          = models.BooleanField(default=False)
+    paid_at          = models.DateTimeField(null=True, blank=True)
+    payable          = models.ForeignKey(
+        'financial.AccountsPayable',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='commission_entries',
+    )
+ 
+    created_at       = models.DateTimeField(auto_now_add=True)
+ 
+    class Meta:
+        ordering = ['-service_date', '-service_time']
+        indexes  = [
+            models.Index(fields=['tenant', 'professional', 'service_date']),
+            models.Index(fields=['tenant', 'is_paid']),
+        ]
+ 
+    def __str__(self):
+        return f"{self.professional} — {self.service_name} R${self.commission_amount} ({self.service_date})"
+ 
+    @property
+    def professional_name(self):
+        return self.professional.name if self.professional else '—'

@@ -11,7 +11,13 @@ from financial.views_expenses import (
     payable_detail_view,
     financial_overview_view,
 )
-from financial.views_commission import commission_payables_view, generate_commission_payables_view
+
+from financial.views_commission import (
+    commission_payables_view,
+    commission_entries_view,
+    generate_commission_payables_view,
+    pay_commission_payable_view,
+)
 
 urlpatterns = [
     # Produtos e estoque
@@ -36,8 +42,16 @@ urlpatterns = [
     path('financial/payables/<uuid:payable_id>/', payable_detail_view, name='payable-detail'),
     path('financial/overview/',           financial_overview_view, name='financial-overview'),
 
-
-    path('financial/commission-payables/', commission_payables_view),
-    path('financial/commission-payables/generate/', generate_commission_payables_view),
+    path('financial/commission-payables/',
+        commission_payables_view, name='commission-payables'),
+    
+    path('financial/commission-payables/generate/',
+        generate_commission_payables_view, name='commission-generate'),
+    
+    path('financial/commission-payables/<uuid:payable_id>/pay/',
+        pay_commission_payable_view, name='commission-pay'),
+    
+    path('financial/commission-entries/',
+        commission_entries_view, name='commission-entries'),
 ]
  

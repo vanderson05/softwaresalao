@@ -210,36 +210,32 @@ def comanda_view(request, appointment_id):
         return Response({'error': 'Agendamento não encontrado.'}, status=404)
 
     if request.method == 'GET':
-        # Cria comanda se não existe ainda
         comanda, created = Comanda.objects.get_or_create(
             appointment=appointment,
             defaults={'tenant': tenant}
         )
 
-        # Se nova comanda, adiciona o serviço do agendamento automaticamente
-        if created:
-            #commission_pct = appointment.professional.commission_pct if appointment.professional else 0
-            if product_id:
-                # Produto não gera comissão
-                commission_pct = 0.0
-            else:
-                # Serviço extra — usa a do profissional por padrão
-                commission_pct = float(request.data.get(
-                    'commission_pct',
-                    appointment.professional.commission_pct if appointment.professional else 0
-                ))
-                        
+        # Garante que o serviço do agendamento está na comanda
+        # (cobre caso de comanda criada sem item por erro anterior)
+        has_service_item = comanda.items.filter(
+            product__isnull=True,
+            description=appointment.service.name
+        ).exists()
+
+        if not has_service_item:
+            commission_pct = float(appointment.professional.commission_pct) \
+                if appointment.professional else 0
             CommandaItem.objects.create(
                 comanda        = comanda,
                 description    = appointment.service.name,
                 quantity       = 1,
                 unit_price     = appointment.price_snapshot or appointment.service.price,
-                commission_pct = commission_pct,
+                commission_pct = commission_pct,  # ← comissão só no serviço
             )
 
         return Response(_serialize_comanda(comanda))
 
-    # POST — adiciona item
+    # ── POST — adiciona item ──────────────────────────────────
     if request.tenant_role not in ('owner', 'manager'):
         return Response({'error': 'Sem permissão.'}, status=403)
 
@@ -261,9 +257,9 @@ def comanda_view(request, appointment_id):
     product = None
     if product_id:
         try:
-            product      = Product.objects.get(id=product_id, tenant=tenant, is_active=True)
-            description  = description or product.name
-            unit_price   = unit_price or float(product.price)
+            product     = Product.objects.get(id=product_id, tenant=tenant, is_active=True)
+            description = description or product.name
+            unit_price  = unit_price or float(product.price)
         except Product.DoesNotExist:
             return Response({'error': 'Produto não encontrado.'}, status=404)
 
@@ -272,10 +268,15 @@ def comanda_view(request, appointment_id):
     if not unit_price:
         return Response({'error': 'unit_price obrigatório.'}, status=400)
 
-    commission_pct = float(request.data.get(
-        'commission_pct',
-        appointment.professional.commission_pct if appointment.professional else 0
-    ))
+    # Produto → comissão 0% (comissão só sobre serviços)
+    # Serviço extra manual → usa comissão do profissional
+    if product:
+        commission_pct = 0.0
+    else:
+        commission_pct = float(request.data.get(
+            'commission_pct',
+            float(appointment.professional.commission_pct) if appointment.professional else 0
+        ))
 
     item = CommandaItem.objects.create(
         comanda        = comanda,
@@ -300,8 +301,8 @@ def comanda_view(request, appointment_id):
         )
 
     return Response({
-        'message': 'Item adicionado.',
-        'item': _serialize_item(item),
+        'message':      'Item adicionado.',
+        'item':         _serialize_item(item),
         'comanda_total': comanda.total,
     }, status=201)
 
@@ -355,8 +356,7 @@ def comanda_item_view(request, item_id):
 def comanda_checkout_view(request, appointment_id):
     """
     POST /api/financial/appointments/{id}/checkout/
-    Fecha comanda + gera CashEntry + marca appointment como completed.
-
+    Fecha comanda + gera CashEntry + CommissionEntry + marca completed.
     Body: {"payment_method": "pix"}
     """
     tenant = request.tenant
@@ -380,9 +380,14 @@ def comanda_checkout_view(request, appointment_id):
         defaults={'tenant': tenant}
     )
 
-    if created:
-        # Comanda nova — adiciona serviço automaticamente
-        commission_pct = appointment.professional.commission_pct if appointment.professional else 0
+    # Garante que o serviço está na comanda
+    has_service_item = comanda.items.filter(
+        product__isnull=True,
+        description=appointment.service.name
+    ).exists()
+
+    if not has_service_item:
+        commission_pct = float(appointment.professional.commission_pct) if appointment.professional else 0
         CommandaItem.objects.create(
             comanda        = comanda,
             description    = appointment.service.name,
@@ -395,16 +400,21 @@ def comanda_checkout_view(request, appointment_id):
         return Response({'error': 'Comanda já foi fechada.'}, status=400)
 
     payment_method = request.data.get('payment_method', 'pix')
-    total          = comanda.total
-    commission     = comanda.total_commission
+
+    # Total da comanda (serviços + produtos)
+    total = comanda.total
+
+    # Comissão APENAS sobre itens de serviço (product=None)
+    service_items = comanda.items.filter(product__isnull=True)
+    commission    = round(sum(float(item.commission_value) for item in service_items), 2)
 
     # Fecha comanda
     comanda.status    = Comanda.Status.CLOSED
     comanda.closed_at = timezone.now()
     comanda.save(update_fields=['status', 'closed_at'])
 
-    # Cria CashEntry
-    cash_entry = CashEntry.objects.create(
+    # Cria CashEntry (receita total)
+    CashEntry.objects.create(
         tenant            = tenant,
         appointment       = appointment,
         comanda           = comanda,
@@ -413,6 +423,37 @@ def comanda_checkout_view(request, appointment_id):
         commission_amount = commission,
         payment_method    = payment_method,
     )
+
+    # ── Cria CommissionEntry por serviço realizado ─────────────
+    from financial.models import CommissionEntry
+
+    client_name  = appointment.client_name or ''
+    client_phone = appointment.client_phone or ''
+    if appointment.client:
+        client_name  = appointment.client.name  or client_phone
+        client_phone = appointment.client.phone or ''
+
+    service_date = appointment.starts_at.date()
+    service_time = appointment.starts_at.time()
+
+    for item in service_items:
+        item_commission = float(item.commission_value)
+        if item_commission > 0 or item.commission_pct > 0:
+            CommissionEntry.objects.create(
+                tenant            = tenant,
+                professional      = appointment.professional,
+                appointment       = appointment,
+                service_name      = item.description,
+                service_price     = float(item.unit_price),
+                commission_pct    = float(item.commission_pct),
+                commission_amount = item_commission,
+                payment_method    = payment_method,
+                client_name       = client_name,
+                client_phone      = client_phone,
+                service_date      = service_date,
+                service_time      = service_time,
+            )
+    # ──────────────────────────────────────────────────────────
 
     # Marca appointment como completed
     appointment.status         = Appointment.Status.COMPLETED
@@ -433,15 +474,14 @@ def comanda_checkout_view(request, appointment_id):
             pass
 
     return Response({
-        'message':         'Atendimento finalizado.',
-        'appointment_id':  str(appointment.id),
-        'status':          appointment.status,
-        'total':           float(total),
-        'commission':      float(commission),
-        'payment_method':  payment_method,
-        'comanda':         _serialize_comanda(comanda),
+        'message':        'Atendimento finalizado.',
+        'appointment_id': str(appointment.id),
+        'status':         appointment.status,
+        'total':          float(total),
+        'commission':     float(commission),
+        'payment_method': payment_method,
+        'comanda':        _serialize_comanda(comanda),
     })
-
 
 # ════════════════════════════════════════════════════════════════
 # CAIXA DO DIA
